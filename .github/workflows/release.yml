@@ -1,0 +1,126 @@
+name: Build and Release
+
+on:
+  workflow_run:
+    workflows: ["Auto Version Tag from PR Title"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore LaunchBoxSaveSync.slnx
+
+      - name: Build Solution (Release)
+        run: msbuild LaunchBoxSaveSync.slnx /p:Configuration=Release
+
+      - name: Extract version from tag
+        id: vars
+        shell: powershell
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $version = "${env:GITHUB_REF_NAME}"
+          } else {
+            git fetch --tags
+            $version = git describe --tags --abbrev=0
+          }
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Create package folder structure
+        shell: cmd
+        run: |
+          mkdir package
+          mkdir "package\SaveSync LaunchBox Integration"
+
+      - name: Copy required binaries
+        shell: cmd
+        run: |
+          copy SaveSyncPlugin.CLI\bin\Release\Newtonsoft.Json.* "package\SaveSync LaunchBox Integration\"
+          copy SaveSyncPlugin.CLI\bin\Release\SaveSyncPlugin.CLI.* "package\SaveSync LaunchBox Integration\"
+          copy SaveSyncPlugin.CLI\bin\Release\SaveSyncPlugin.Core.* "package\SaveSync LaunchBox Integration\"
+          copy SaveSyncPlugin.CLI\bin\Release\SaveSyncPlugin.* "package\SaveSync LaunchBox Integration\"
+          copy SaveSyncPlugin.CLI\bin\Release\SaveSyncPlugin.UI.* "package\SaveSync LaunchBox Integration\"
+
+      - name: Copy Images folder
+        shell: cmd
+        run: |
+          xcopy Images "package\SaveSync LaunchBox Integration\Images\" /E /I /Y
+
+      - name: Copy settings.json
+        shell: cmd
+        run: |
+          copy settings.json "package\SaveSync LaunchBox Integration\"
+
+      - name: Create ZIP with version
+        shell: powershell
+        run: |
+          $zipName = "launchbox-savesync-plugin-${{ steps.vars.outputs.VERSION }}.zip"
+          Compress-Archive -Path package\* -DestinationPath $zipName
+
+      - name: Generate Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configurationJson: |
+            {
+              "pr_template": "- #{{TITLE}} (##{{NUMBER}})",
+              "categories": [
+                {
+                  "title": "💥 New Version",
+                  "rules": [
+                    { "pattern": "^breaking", "on_property": "title" },
+                    { "pattern": "^version", "on_property": "title" }
+                  ]
+                },
+                {
+                  "title": "🚀 Features",
+                  "rules": [
+                    { "pattern": "^feat", "on_property": "title" }
+                  ]
+                },
+                {
+                  "title": "🐛 Fixes",
+                  "rules": [
+                    { "pattern": "^fix", "on_property": "title" },
+                    { "pattern": "^bug", "on_property": "title" }
+                  ]
+                },
+                {
+                  "title": "🧰 Maintenance",
+                  "rules": [
+                    { "pattern": "^refactor", "on_property": "title" },
+                    { "pattern": "^chore", "on_property": "title" }
+                  ]
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.VERSION }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          files: launchbox-savesync-plugin-${{ steps.vars.outputs.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

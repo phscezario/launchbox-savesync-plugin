@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>SaveSyncPlugin</AssemblyName>
+    <RootNamespace>SaveSyncPlugin</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <Reference Include="Unbroken.LaunchBox.Plugins">
+      <HintPath>..\lib\LaunchBox\Unbroken.LaunchBox.Plugins.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SaveSyncPlugin.Core\SaveSyncPlugin.Core.csproj" />
+    <ProjectReference Include="..\SaveSyncPlugin.UI\SaveSyncPlugin.UI.csproj" />
+  </ItemGroup>
+</Project>

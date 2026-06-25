@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>SaveSyncPlugin.UI</AssemblyName>
+    <RootNamespace>SaveSyncPlugin.UI</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Unbroken.LaunchBox.Plugins">
+      <HintPath>..\lib\LaunchBox\Unbroken.LaunchBox.Plugins.dll</HintPath>
+    </Reference>
+    <ProjectReference Include="..\SaveSyncPlugin.Core\SaveSyncPlugin.Core.csproj" />
+  </ItemGroup>
+</Project>

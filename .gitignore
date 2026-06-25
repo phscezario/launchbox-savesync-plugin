@@ -1,0 +1,45 @@
+## =========================
+## .NET / Visual Studio
+## =========================
+
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+*.sln.iml
+.vscode/
+packages/
+*.nupkg
+*.snupkg
+*.binlog
+[Tt]est[Rr]esult*/
+TestResults/
+*.coverage
+*.coveragexml
+CodeCoverage/
+publish/
+*.publishproj
+~$*
+*~
+*.tmp
+*.temp
+Thumbs.db
+Desktop.ini
+*.log
+*.bak
+.dotnet/
+project.lock.json
+project.fragment.lock.json
+.opencode/
