@@ -5,6 +5,7 @@ on:
     workflows: ["Auto Version Tag from PR Title"]
     types:
       - completed
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,17 +22,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+      - name: Restore
+        run: dotnet restore
 
-      - name: Restore NuGet Packages
-        run: nuget restore LaunchBoxSaveSync.slnx
-
-      - name: Build Solution (Release)
-        run: msbuild LaunchBoxSaveSync.slnx /p:Configuration=Release
+      - name: Build
+        run: dotnet build -c Release --no-restore
 
       - name: Extract version from tag
         id: vars
