@@ -65,10 +65,6 @@ jobs:
         run: |
           xcopy Images "package\SaveSync LaunchBox Integration\Images\" /E /I /Y
 
-      - name: Copy settings.json
-        shell: cmd
-        run: |
-          copy settings.json "package\SaveSync LaunchBox Integration\"
 
       - name: Create ZIP with version
         shell: powershell
