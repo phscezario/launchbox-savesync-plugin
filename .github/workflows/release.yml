@@ -60,11 +60,6 @@ jobs:
           copy SaveSyncPlugin.CLI\bin\Release\net9.0-windows\SaveSyncPlugin.* "package\SaveSync LaunchBox Integration\"
           copy SaveSyncPlugin.CLI\bin\Release\net9.0-windows\SaveSyncPlugin.UI.* "package\SaveSync LaunchBox Integration\"
 
-      - name: Copy Images folder
-        shell: cmd
-        run: |
-          xcopy Images "package\SaveSync LaunchBox Integration\Images\" /E /I /Y
-
 
       - name: Create ZIP with version
         shell: powershell
