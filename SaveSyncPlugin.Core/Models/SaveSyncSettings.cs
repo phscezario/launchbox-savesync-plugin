@@ -8,5 +8,7 @@ namespace SaveSyncPlugin.Core.Models
         public int RobocopyThreads { get; set; } = 8;
         public int RobocopyRetries { get; set; } = 3;
         public int RobocopyWaitSeconds { get; set; } = 10;
+        public bool AlwaysKeepNewer { get; set; } = true;
+        public bool AskOnConflict { get; set; } = true;
     }
 }

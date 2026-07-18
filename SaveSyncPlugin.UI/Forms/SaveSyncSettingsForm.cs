@@ -19,6 +19,8 @@ namespace SaveSyncPlugin.UI.Forms
             txtServerPath.Text = s.ServerBasePath;
             chkSyncOnStartup.Checked = s.SyncOnStartup;
             chkSyncOnGameClose.Checked = s.SyncOnGameClose;
+            chkAlwaysKeepNewer.Checked = s.AlwaysKeepNewer;
+            chkAskOnConflict.Checked = s.AskOnConflict;
             nudThreads.Value = s.RobocopyThreads;
             nudRetries.Value = s.RobocopyRetries;
             nudWait.Value = s.RobocopyWaitSeconds;
@@ -43,6 +45,8 @@ namespace SaveSyncPlugin.UI.Forms
                 ServerBasePath = txtServerPath.Text.Trim(),
                 SyncOnStartup = chkSyncOnStartup.Checked,
                 SyncOnGameClose = chkSyncOnGameClose.Checked,
+                AlwaysKeepNewer = chkAlwaysKeepNewer.Checked,
+                AskOnConflict = chkAskOnConflict.Checked,
                 RobocopyThreads = (int)nudThreads.Value,
                 RobocopyRetries = (int)nudRetries.Value,
                 RobocopyWaitSeconds = (int)nudWait.Value
