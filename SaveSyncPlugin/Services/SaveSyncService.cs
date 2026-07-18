@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Forms;
 using SaveSyncPlugin.Core.Models;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.UI.Forms;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -251,6 +253,68 @@ namespace SaveSyncPlugin.Services
                 g.Title.Equals(config.Title, StringComparison.OrdinalIgnoreCase));
         }
 
+        internal FileConflict DetectConflict(string source, string dest, string fileFilter)
+        {
+            try
+            {
+                if (!Directory.Exists(source) || !Directory.Exists(dest))
+                    return null;
+
+                var sourceFiles = Directory.GetFiles(source, string.IsNullOrEmpty(fileFilter) ? "*.*" : fileFilter, SearchOption.AllDirectories);
+                var destFiles = Directory.GetFiles(dest, string.IsNullOrEmpty(fileFilter) ? "*.*" : fileFilter, SearchOption.AllDirectories);
+
+                foreach (var srcFile in sourceFiles)
+                {
+                    var relativePath = srcFile.Substring(source.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var destFile = Path.Combine(dest, relativePath);
+
+                    if (File.Exists(destFile))
+                    {
+                        var srcInfo = new FileInfo(srcFile);
+                        var destInfo = new FileInfo(destFile);
+
+                        if (srcInfo.LastWriteTime != destInfo.LastWriteTime)
+                        {
+                            return new FileConflict
+                            {
+                                LocalPath = srcFile,
+                                ServerPath = destFile,
+                                LocalModified = srcInfo.LastWriteTime,
+                                ServerModified = destInfo.LastWriteTime,
+                                LocalSize = srcInfo.Length,
+                                ServerSize = destInfo.Length
+                            };
+                        }
+                    }
+                }
+
+                foreach (var dstFile in destFiles)
+                {
+                    var relativePath = dstFile.Substring(dest.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var srcFile = Path.Combine(source, relativePath);
+
+                    if (!File.Exists(srcFile))
+                    {
+                        var dstInfo = new FileInfo(dstFile);
+                        return new FileConflict
+                        {
+                            LocalPath = srcFile,
+                            ServerPath = dstFile,
+                            LocalModified = DateTime.MinValue,
+                            ServerModified = dstInfo.LastWriteTime,
+                            LocalSize = 0,
+                            ServerSize = dstInfo.Length
+                        };
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
         private void RobocopyCopy(string source, string dest, string fileFilter = null)
         {
             try
@@ -259,42 +323,98 @@ namespace SaveSyncPlugin.Services
                 Directory.CreateDirectory(dest);
 
                 var settings = SaveSyncStorage.LoadSettings();
-                var mt = settings.RobocopyThreads;
-                var r = settings.RobocopyRetries;
-                var w = settings.RobocopyWaitSeconds;
+                var conflict = DetectConflict(source, dest, fileFilter);
 
-                var args = string.IsNullOrEmpty(fileFilter)
-                    ? $"\"{source}\" \"{dest}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}"
-                    : $"\"{source}\" \"{dest}\" \"{fileFilter}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}";
-
-                var psi = new ProcessStartInfo
+                if (conflict != null)
                 {
-                    FileName = "robocopy.exe",
-                    Arguments = args,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
+                    if (settings.AlwaysKeepNewer)
                     {
-                        proc.OutputDataReceived += (s, e) =>
+                        if (conflict.LocalIsNewer)
                         {
-                            if (!string.IsNullOrEmpty(e.Data))
-                                System.Diagnostics.Debug.WriteLine($"[SaveSync] {e.Data}");
-                        };
-                        proc.BeginOutputReadLine();
-                        proc.WaitForExit(300000);
+                            ExecuteRobocopy(source, dest, fileFilter, settings, true);
+                        }
+                        else
+                        {
+                            ExecuteRobocopy(dest, source, fileFilter, settings, true);
+                        }
                     }
+                    else if (settings.AskOnConflict)
+                    {
+                        var result = ShowConflictDialog(conflict);
+                        if (result == DialogResult.Yes)
+                        {
+                            ExecuteRobocopy(source, dest, fileFilter, settings, true);
+                        }
+                        else
+                        {
+                            ExecuteRobocopy(dest, source, fileFilter, settings, true);
+                        }
+                    }
+                }
+                else
+                {
+                    ExecuteRobocopy(source, dest, fileFilter, settings, false);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[SaveSync] Robocopy error: {ex.Message}");
+                Debug.WriteLine($"[SaveSync] Robocopy error: {ex.Message}");
+            }
+        }
+
+        private DialogResult ShowConflictDialog(FileConflict conflict)
+        {
+            DialogResult result = DialogResult.Yes;
+
+            if (Application.MessageLoop)
+            {
+                using (var form = new ConflictForm(conflict))
+                {
+                    result = form.ShowDialog();
+                    if (form.UseLocal)
+                        result = DialogResult.Yes;
+                    else
+                        result = DialogResult.No;
+                }
+            }
+
+            return result;
+        }
+
+        private void ExecuteRobocopy(string source, string dest, string fileFilter, SaveSyncSettings settings, bool usePurge)
+        {
+            var mt = settings.RobocopyThreads;
+            var r = settings.RobocopyRetries;
+            var w = settings.RobocopyWaitSeconds;
+
+            var purgeFlag = usePurge ? " /PURGE" : "";
+            var filterArg = string.IsNullOrEmpty(fileFilter) ? "" : $" \"{fileFilter}\"";
+
+            var args = $"\"{source}\" \"{dest}\"{filterArg} /E /XO{purgeFlag} /Z /MT:{mt} /R:{r} /W:{w}";
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "robocopy.exe",
+                Arguments = args,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            using (var proc = Process.Start(psi))
+            {
+                if (proc != null)
+                {
+                    proc.OutputDataReceived += (s, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                            Debug.WriteLine($"[SaveSync] {e.Data}");
+                    };
+                    proc.BeginOutputReadLine();
+                    proc.WaitForExit(300000);
+                }
             }
         }
     }
