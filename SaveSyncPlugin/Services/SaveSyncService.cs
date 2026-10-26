@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using SaveSyncPlugin.Core.Models;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.Core.Sync;
 using SaveSyncPlugin.UI.Forms;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
@@ -20,12 +20,12 @@ namespace SaveSyncPlugin.Services
             foreach (var c in emuConfigs)
             {
                 progress?.Report($"Downloading emulator: {c.Title ?? c.FolderName}");
-                DownloadEmulator(c);
+                DownloadEmulator(c, progress);
             }
             foreach (var c in gameConfigs)
             {
                 progress?.Report($"Downloading game: {c.Title ?? c.FolderName}");
-                DownloadGame(c);
+                DownloadGame(c, progress);
             }
         }
 
@@ -35,12 +35,12 @@ namespace SaveSyncPlugin.Services
             foreach (var c in emuConfigs)
             {
                 progress?.Report($"Uploading emulator: {c.Title ?? c.FolderName}");
-                UploadEmulator(c);
+                UploadEmulator(c, progress);
             }
             foreach (var c in gameConfigs)
             {
                 progress?.Report($"Uploading game: {c.Title ?? c.FolderName}");
-                UploadGame(c);
+                UploadGame(c, progress);
             }
         }
 
@@ -50,12 +50,12 @@ namespace SaveSyncPlugin.Services
             foreach (var c in emuConfigs)
             {
                 progress?.Report($"Syncing emulator: {c.Title ?? c.FolderName}");
-                SyncEmulator(c);
+                SyncEmulator(c, progress);
             }
             foreach (var c in gameConfigs)
             {
                 progress?.Report($"Syncing game: {c.Title ?? c.FolderName}");
-                SyncGame(c);
+                SyncGame(c, progress);
             }
         }
 
@@ -64,7 +64,7 @@ namespace SaveSyncPlugin.Services
             var paths = GetEmulatorSyncPaths(config);
             if (paths == null) return;
             foreach (var p in paths)
-                RobocopyCopy(p.Server, p.Local);
+                RobocopyCopy(p.Server, p.Local, null, progress);
         }
 
         public void UploadEmulator(EmulatorSaveConfig config, IProgress<string> progress = null)
@@ -72,7 +72,7 @@ namespace SaveSyncPlugin.Services
             var paths = GetEmulatorSyncPaths(config);
             if (paths == null) return;
             foreach (var p in paths)
-                RobocopyCopy(p.Local, p.Server);
+                RobocopyCopy(p.Local, p.Server, null, progress);
         }
 
         public void SyncEmulator(EmulatorSaveConfig config, IProgress<string> progress = null)
@@ -81,8 +81,8 @@ namespace SaveSyncPlugin.Services
             if (paths == null) return;
             foreach (var p in paths)
             {
-                RobocopyCopy(p.Server, p.Local);
-                RobocopyCopy(p.Local, p.Server);
+                RobocopyCopy(p.Server, p.Local, null, progress);
+                RobocopyCopy(p.Local, p.Server, null, progress);
             }
         }
 
@@ -91,7 +91,7 @@ namespace SaveSyncPlugin.Services
             var entries = GetGameSyncPaths(config);
             if (entries == null) return;
             foreach (var e in entries)
-                RobocopyCopy(e.Dest, e.Source, e.FileFilter);
+                RobocopyCopy(e.Dest, e.Source, e.FileFilter, progress);
         }
 
         public void UploadGame(GameSaveConfig config, IProgress<string> progress = null)
@@ -99,7 +99,7 @@ namespace SaveSyncPlugin.Services
             var entries = GetGameSyncPaths(config);
             if (entries == null) return;
             foreach (var e in entries)
-                RobocopyCopy(e.Source, e.Dest, e.FileFilter);
+                RobocopyCopy(e.Source, e.Dest, e.FileFilter, progress);
         }
 
         public void SyncGame(GameSaveConfig config, IProgress<string> progress = null)
@@ -108,8 +108,8 @@ namespace SaveSyncPlugin.Services
             if (entries == null) return;
             foreach (var e in entries)
             {
-                RobocopyCopy(e.Dest, e.Source, e.FileFilter);
-                RobocopyCopy(e.Source, e.Dest, e.FileFilter);
+                RobocopyCopy(e.Dest, e.Source, e.FileFilter, progress);
+                RobocopyCopy(e.Source, e.Dest, e.FileFilter, progress);
             }
         }
 
@@ -315,7 +315,8 @@ namespace SaveSyncPlugin.Services
             return null;
         }
 
-        private void RobocopyCopy(string source, string dest, string fileFilter = null)
+        private void RobocopyCopy(string source, string dest, string fileFilter = null,
+            IProgress<string> progress = null)
         {
             try
             {
@@ -325,40 +326,44 @@ namespace SaveSyncPlugin.Services
                 var settings = SaveSyncStorage.LoadSettings();
                 var conflict = DetectConflict(source, dest, fileFilter);
 
-                if (conflict != null)
+                if (conflict == null)
                 {
-                    if (settings.AlwaysKeepNewer)
-                    {
-                        if (conflict.LocalIsNewer)
-                        {
-                            ExecuteRobocopy(source, dest, fileFilter, settings, true);
-                        }
-                        else
-                        {
-                            ExecuteRobocopy(dest, source, fileFilter, settings, true);
-                        }
-                    }
-                    else if (settings.AskOnConflict)
-                    {
-                        var result = ShowConflictDialog(conflict);
-                        if (result == DialogResult.Yes)
-                        {
-                            ExecuteRobocopy(source, dest, fileFilter, settings, true);
-                        }
-                        else
-                        {
-                            ExecuteRobocopy(dest, source, fileFilter, settings, true);
-                        }
-                    }
+                    // No conflict: normal direction (source -> dest). /XO keeps the
+                    // newest file and, without DeleteExtraneous, nothing is deleted.
+                    RobocopyRunner.Run(source, dest, fileFilter, settings, progress);
+                    return;
+                }
+
+                // Conflict: AlwaysKeepNewer/AskOnConflict decide only the DIRECTION
+                // (who wins). Whether a file may be deleted is decided solely by
+                // DeleteExtraneous, inside RobocopyRunner - it never adds /PURGE here.
+                bool sourceIsNewer;
+                if (settings.AlwaysKeepNewer)
+                {
+                    sourceIsNewer = conflict.LocalIsNewer;
+                }
+                else if (settings.AskOnConflict)
+                {
+                    sourceIsNewer = ShowConflictDialog(conflict) == DialogResult.Yes;
                 }
                 else
                 {
-                    ExecuteRobocopy(source, dest, fileFilter, settings, false);
+                    // Neither option enabled: keep the newest copy (safe default).
+                    sourceIsNewer = conflict.LocalIsNewer;
                 }
+
+                SyncLog.Write(
+                    $"CONFLICT {conflict.LocalPath ?? "(missing)"} | local={conflict.LocalModified:yyyy-MM-dd HH:mm:ss} " +
+                    $"server={conflict.ServerModified:yyyy-MM-dd HH:mm:ss} | winner={(sourceIsNewer ? "source" : "dest")}");
+
+                if (sourceIsNewer)
+                    RobocopyRunner.Run(source, dest, fileFilter, settings, progress);
+                else
+                    RobocopyRunner.Run(dest, source, fileFilter, settings, progress);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SaveSync] Robocopy error: {ex.Message}");
+                SyncLog.Write($"FAIL    robocopy: {ex.Message}");
             }
         }
 
@@ -379,43 +384,6 @@ namespace SaveSyncPlugin.Services
             }
 
             return result;
-        }
-
-        private void ExecuteRobocopy(string source, string dest, string fileFilter, SaveSyncSettings settings, bool usePurge)
-        {
-            var mt = settings.RobocopyThreads;
-            var r = settings.RobocopyRetries;
-            var w = settings.RobocopyWaitSeconds;
-
-            var purgeFlag = usePurge ? " /PURGE" : "";
-            var filterArg = string.IsNullOrEmpty(fileFilter) ? "" : $" \"{fileFilter}\"";
-
-            var args = $"\"{source}\" \"{dest}\"{filterArg} /E /XO{purgeFlag} /Z /MT:{mt} /R:{r} /W:{w}";
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = "robocopy.exe",
-                Arguments = args,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            using (var proc = Process.Start(psi))
-            {
-                if (proc != null)
-                {
-                    proc.OutputDataReceived += (s, e) =>
-                    {
-                        if (!string.IsNullOrEmpty(e.Data))
-                            Debug.WriteLine($"[SaveSync] {e.Data}");
-                    };
-                    proc.BeginOutputReadLine();
-                    proc.WaitForExit(300000);
-                }
-            }
         }
     }
 }

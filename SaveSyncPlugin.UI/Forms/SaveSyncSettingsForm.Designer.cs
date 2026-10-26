@@ -34,6 +34,7 @@ namespace SaveSyncPlugin.UI.Forms
         private CheckBox chkSyncOnGameClose;
         private CheckBox chkAlwaysKeepNewer;
         private CheckBox chkAskOnConflict;
+        private CheckBox chkDeleteExtraneous;
         private NumericUpDown nudThreads;
         private NumericUpDown nudRetries;
         private NumericUpDown nudWait;
@@ -49,6 +50,7 @@ namespace SaveSyncPlugin.UI.Forms
             chkSyncOnGameClose = new CheckBox();
             chkAlwaysKeepNewer = new CheckBox();
             chkAskOnConflict = new CheckBox();
+            chkDeleteExtraneous = new CheckBox();
             grpRobocopy = new GroupBox();
             lblThreads = new Label();
             nudThreads = new NumericUpDown();
@@ -104,9 +106,10 @@ namespace SaveSyncPlugin.UI.Forms
             grpSync.Controls.Add(chkSyncOnGameClose);
             grpSync.Controls.Add(chkAlwaysKeepNewer);
             grpSync.Controls.Add(chkAskOnConflict);
+            grpSync.Controls.Add(chkDeleteExtraneous);
             grpSync.Location = new Point(12, 136);
             grpSync.Name = "grpSync";
-            grpSync.Size = new Size(660, 195);
+            grpSync.Size = new Size(660, 235);
             grpSync.TabIndex = 1;
             grpSync.TabStop = false;
             grpSync.Text = "Sync Options";
@@ -134,7 +137,18 @@ namespace SaveSyncPlugin.UI.Forms
             chkAskOnConflict.Size = new Size(500, 36);
             chkAskOnConflict.TabIndex = 3;
             chkAskOnConflict.Text = "Ask when there's a conflict (only when above is unchecked)";
-
+            // 
+            // chkDeleteExtraneous
+            // 
+            chkDeleteExtraneous.Location = new Point(11, 187);
+            chkDeleteExtraneous.Name = "chkDeleteExtraneous";
+            chkDeleteExtraneous.Size = new Size(640, 36);
+            chkDeleteExtraneous.TabIndex = 4;
+            chkDeleteExtraneous.Text = "Mirror mode: delete files that are missing on the other side (can lose saves)";
+            toolTip.SetToolTip(chkDeleteExtraneous, "Adds /PURGE to robocopy: a save that exists on only one side is DELETED.\r\nLeave unchecked for the safe, non-destructive sync (newest file wins).");
+            // 
+            // grpRobocopy
+            // 
             grpRobocopy.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             grpRobocopy.Controls.Add(lblThreads);
             grpRobocopy.Controls.Add(nudThreads);
@@ -142,7 +156,7 @@ namespace SaveSyncPlugin.UI.Forms
             grpRobocopy.Controls.Add(nudRetries);
             grpRobocopy.Controls.Add(lblWait);
             grpRobocopy.Controls.Add(nudWait);
-            grpRobocopy.Location = new Point(12, 345);
+            grpRobocopy.Location = new Point(12, 385);
             grpRobocopy.Name = "grpRobocopy";
             grpRobocopy.Size = new Size(660, 111);
             grpRobocopy.TabIndex = 2;
@@ -197,7 +211,7 @@ namespace SaveSyncPlugin.UI.Forms
             toolTip.SetToolTip(nudWait, "Wait time in seconds between retries (default: 10)");
 
             btnSave.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            btnSave.Location = new Point(403, 494);
+            btnSave.Location = new Point(403, 520);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(120, 40);
             btnSave.TabIndex = 3;
@@ -205,7 +219,7 @@ namespace SaveSyncPlugin.UI.Forms
             btnSave.Click += BtnSave_Click;
 
             btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            btnCancel.Location = new Point(552, 494);
+            btnCancel.Location = new Point(552, 520);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(120, 40);
             btnCancel.TabIndex = 4;
@@ -215,7 +229,7 @@ namespace SaveSyncPlugin.UI.Forms
             AutoScaleDimensions = new SizeF(11F, 28F);
             AutoScaleMode = AutoScaleMode.Font;
             AutoScroll = true;
-            ClientSize = new Size(720, 620);
+            ClientSize = new Size(720, 646);
             Controls.Add(grpPaths);
             Controls.Add(grpSync);
             Controls.Add(grpRobocopy);
@@ -225,7 +239,7 @@ namespace SaveSyncPlugin.UI.Forms
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
-            MinimumSize = new Size(720, 580);
+            MinimumSize = new Size(720, 606);
             Name = "SaveSyncSettingsForm";
             StartPosition = FormStartPosition.CenterParent;
             Text = "SaveSync: Settings";

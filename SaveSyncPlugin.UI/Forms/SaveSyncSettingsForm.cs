@@ -7,6 +7,8 @@ namespace SaveSyncPlugin.UI.Forms
 {
     public partial class SaveSyncSettingsForm : Form
     {
+        private bool _deleteExtraneousOnLoad;
+
         public SaveSyncSettingsForm()
         {
             InitializeComponent();
@@ -24,6 +26,9 @@ namespace SaveSyncPlugin.UI.Forms
             nudThreads.Value = s.RobocopyThreads;
             nudRetries.Value = s.RobocopyRetries;
             nudWait.Value = s.RobocopyWaitSeconds;
+
+            _deleteExtraneousOnLoad = s.DeleteExtraneous;
+            chkDeleteExtraneous.Checked = s.DeleteExtraneous;
         }
 
         private void BtnBrowseServer_Click(object sender, EventArgs e)
@@ -40,6 +45,25 @@ namespace SaveSyncPlugin.UI.Forms
 
         private void BtnSave_Click(object sender, EventArgs e)
         {
+            if (chkDeleteExtraneous.Checked && !_deleteExtraneousOnLoad)
+            {
+                var answer = MessageBox.Show(
+                    "Mirror mode adds /PURGE to robocopy.\r\n\r\n" +
+                    "A save that exists on only one side (for example, a save made while " +
+                    "the server folder was offline) will be DELETED from the other side.\r\n\r\n" +
+                    "Enable mirror mode?",
+                    "SaveSync: dangerous option",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+
+                if (answer != DialogResult.Yes)
+                {
+                    chkDeleteExtraneous.Checked = false;
+                    return;
+                }
+            }
+
             var s = new SaveSyncSettings
             {
                 ServerBasePath = txtServerPath.Text.Trim(),
@@ -49,7 +73,8 @@ namespace SaveSyncPlugin.UI.Forms
                 AskOnConflict = chkAskOnConflict.Checked,
                 RobocopyThreads = (int)nudThreads.Value,
                 RobocopyRetries = (int)nudRetries.Value,
-                RobocopyWaitSeconds = (int)nudWait.Value
+                RobocopyWaitSeconds = (int)nudWait.Value,
+                DeleteExtraneous = chkDeleteExtraneous.Checked
             };
 
             SaveSyncStorage.SaveSettings(s);

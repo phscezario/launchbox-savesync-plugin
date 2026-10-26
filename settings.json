@@ -1,5 +1,8 @@
 {
   "ServerBasePath": "",
   "SyncOnStartup": true,
-  "SyncOnGameClose": true
+  "SyncOnGameClose": true,
+  "AlwaysKeepNewer": true,
+  "AskOnConflict": true,
+  "DeleteExtraneous": false
 }

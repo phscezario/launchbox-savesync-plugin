@@ -62,6 +62,24 @@ Applications are auto-restored if deleted, ensuring your sync setup is always av
 - **Game close sync**: automatically upload saves when a game closes
 - **Manual sync**: use the Tools menu items for full control
 
+#### Non-destructive by default
+
+Every sync runs robocopy with `/E /XO`:
+
+- files are copied in both directions, so a save that exists on only one side is kept;
+- `/XO` means the **newest** copy wins — a file is never overwritten by an older one;
+- **nothing is deleted.** Older builds passed `/PURGE` on every call, so a save made
+  while the server folder was offline (or not yet synced) was silently deleted on the
+  next LaunchBox startup.
+
+Mirror mode (`DeleteExtraneous: true` in `settings.json`, or the checkbox in
+`Tools > SaveSync: Settings`) re-enables `/PURGE`. Even then it is refused when the
+source is empty or the destination is not an absolute path — that guard is what stops
+an empty/unmounted server folder from wiping your saves.
+
+Every robocopy call is appended to `Plugins\SaveSync LaunchBox Integration\sync.log`
+(command line + exit code), so the sync can be audited.
+
 ### 🧠 Data Integrity
 
 On startup, the plugin validates all configurations:
@@ -142,10 +160,26 @@ Then use `Tools > SaveSync: Emulator Configs` and `Tools > SaveSync: Game Config
 - Requires robocopy.exe (included with Windows)
 - Backup server path must be accessible from the machine
 - Game closure detection requires LaunchBox/BigBox to be running
+- "Newest wins" compares file timestamps: two PCs with very different clocks can make an
+  older save look newer. Keep the clocks in sync (Windows time service) if you play on both.
 
 ---
 
 ## 📝 Changelog
+
+### Unreleased
+
+- **fix:** sync is non-destructive by default. `/PURGE` was passed on every robocopy
+  call, so a save that existed on only one side (offline play, power loss, new save
+  slot, server folder not yet synced) was deleted by the other side. The default is now
+  `/E /XO` (copy both ways, newest wins, nothing deleted).
+- **feat:** mirror mode is opt-in via `DeleteExtraneous` in `settings.json` (checkbox in
+  the Settings dialog, with a confirmation prompt) and is refused for empty sources or
+  relative destinations.
+- **feat:** every robocopy call is logged to `sync.log` (command line + exit code).
+- **refactor:** robocopy argument building moved to `SaveSyncPlugin.Core.Sync.RobocopyRunner`,
+  shared by the plugin and the CLI (it was duplicated).
+- **test:** new `SaveSyncPlugin.Tests` project covering the deletion scenarios.
 
 ### v0.0.1
 - Initial release
@@ -211,6 +245,24 @@ As aplicações são restauradas automaticamente se excluídas, garantindo que s
 - **Sincronização na inicialização**: baixa automaticamente todos os saves quando o LaunchBox inicia
 - **Sincronização ao fechar jogo**: envia automaticamente os saves quando um jogo é fechado
 - **Sincronização manual**: use os itens do menu Tools para controle total
+
+#### Não destrutiva por padrão
+
+Toda sincronização roda robocopy com `/E /XO`:
+
+- os arquivos são copiados nos dois sentidos, então um save que existe só de um lado é mantido;
+- `/XO` significa que a cópia **mais nova** vence — um arquivo nunca é sobrescrito por um mais antigo;
+- **nada é apagado.** Versões anteriores passavam `/PURGE` em toda chamada, então um save feito
+  enquanto a pasta do servidor estava offline (ou ainda não sincronizada) era apagado em silêncio
+  na próxima inicialização do LaunchBox.
+
+O modo espelho (`DeleteExtraneous: true` no `settings.json`, ou a caixa em
+`Tools > SaveSync: Settings`) reativa o `/PURGE`. Mesmo assim ele é recusado quando a origem
+está vazia ou o destino não é um caminho absoluto — essa proteção é o que impede uma pasta de
+servidor vazia/desmontada de apagar seus saves.
+
+Toda chamada de robocopy é registrada em `Plugins\SaveSync LaunchBox Integration\sync.log`
+(linha de comando + código de saída), para auditoria.
 
 ### 🧠 Integridade dos Dados
 
@@ -292,10 +344,28 @@ Depois use `Tools > SaveSync: Emulator Configs` e `Tools > SaveSync: Game Config
 - Requer robocopy.exe (incluído no Windows)
 - O caminho do servidor de backup precisa estar acessível pela máquina
 - A detecção de fechamento de jogo requer que o LaunchBox/BigBox esteja em execução
+- "Mais novo vence" compara o horário dos arquivos: dois PCs com relógios muito diferentes
+  podem fazer um save antigo parecer mais novo. Mantenha os relógios sincronizados (serviço
+  de hora do Windows) se você joga nos dois.
 
 ---
 
 ## 📝 Histórico de Versões
+
+### Não lançado
+
+- **fix:** sincronização não destrutiva por padrão. O `/PURGE` era passado em toda
+  chamada de robocopy, então um save que existia só de um lado (jogo offline, queda de
+  energia, novo slot, pasta do servidor ainda não sincronizada) era apagado pelo outro
+  lado. O padrão agora é `/E /XO` (copia nos dois sentidos, mais novo vence, nada é apagado).
+- **feat:** modo espelho é opt-in via `DeleteExtraneous` no `settings.json` (caixa no
+  diálogo de Configurações, com confirmação) e é recusado para origem vazia ou destino
+  relativo.
+- **feat:** toda chamada de robocopy é registrada em `sync.log` (linha de comando + código
+  de saída).
+- **refactor:** a montagem dos argumentos do robocopy foi para
+  `SaveSyncPlugin.Core.Sync.RobocopyRunner`, compartilhada entre plugin e CLI (estava duplicada).
+- **test:** novo projeto `SaveSyncPlugin.Tests` cobrindo os cenários de exclusão.
 
 ### v0.0.1
 - Versão inicial

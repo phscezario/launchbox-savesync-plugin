@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using SaveSyncPlugin.Core.Models;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.Core.Sync;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -181,35 +182,9 @@ namespace SaveSyncPlugin.CLI
 
         private static void RobocopyCopy(string source, string dest, string fileFilter = null)
         {
-            try
-            {
-                if (!Directory.Exists(source)) return;
-                Directory.CreateDirectory(dest);
-
-                var settings = SaveSyncStorage.LoadSettings();
-                var mt = settings.RobocopyThreads;
-                var r = settings.RobocopyRetries;
-                var w = settings.RobocopyWaitSeconds;
-
-                var args = string.IsNullOrEmpty(fileFilter)
-                    ? $"\"{source}\" \"{dest}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}"
-                    : $"\"{source}\" \"{dest}\" \"{fileFilter}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}";
-
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "robocopy.exe",
-                    Arguments = args,
-                    CreateNoWindow = true,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                    UseShellExecute = false
-                };
-
-                using (var proc = System.Diagnostics.Process.Start(psi))
-                    proc?.WaitForExit(300000);
-            }
-            catch
-            {
-            }
+            // Same non-destructive runner used by the plugin: no /PURGE unless the
+            // user enabled DeleteExtraneous in settings.json.
+            RobocopyRunner.Run(source, dest, fileFilter, SaveSyncStorage.LoadSettings());
         }
     }
 }
