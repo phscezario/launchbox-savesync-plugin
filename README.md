@@ -36,6 +36,30 @@ Configure save folders for each emulator registered in LaunchBox:
 - Automatically syncs all configured folders to your backup server
 - Configurations are persisted in JSON files and survive updates
 
+#### Emulators launched through a wrapper
+
+When the emulator entry points at a wrapper (for example
+`Vita3KWrapper.exe`), the paths are relative to the **wrapper folder** by default.
+If the emulator data lives somewhere else, set `LocalBase` (field *Emulator
+directory* in the UI) — it is relative to the LaunchBox folder, so the whole tree
+stays portable:
+
+```json
+{
+  "Title": "Vita3K",
+  "FolderName": "PSVita",
+  "LocalBase": "..\\Emuladores\\PSVita\\portable\\fs\\ux0\\user\\00",
+  "RelativePaths": [ "savedata" ]
+}
+```
+
+- local: `D:\Jogos\LaunchBox` + `LocalBase` + `savedata`
+- server: `<ServerBasePath>\PSVita\savedata`
+
+The server side is always resolved **inside** `ServerBasePath`: a relative path
+that would escape it (like `..\..\..\Emuladores\...`) is refused and logged as
+`SKIP` instead of writing outside the backup folder.
+
 ### 🎮 Windows Game Save Configuration
 
 Configure save paths for individual Windows games:
@@ -78,7 +102,8 @@ source is empty or the destination is not an absolute path — that guard is wha
 an empty/unmounted server folder from wiping your saves.
 
 Every robocopy call is appended to `Plugins\SaveSync LaunchBox Integration\sync.log`
-(command line + exit code), so the sync can be audited.
+(command line + exit code), together with `LAUNCH`/`EXIT` lines for the game
+lifecycle and `SKIP` lines for refused paths, so the sync can be audited.
 
 ### 🧠 Data Integrity
 
@@ -169,6 +194,19 @@ Then use `Tools > SaveSync: Emulator Configs` and `Tools > SaveSync: Game Config
 
 ### Unreleased
 
+- **fix:** emulator paths for wrapped emulators. The same relative path was applied to
+  the local base (the wrapper folder) and to the server base, so `..\..\..\Emuladores\...`
+  escaped `ServerBasePath` and the "backup" was written to `C:\Drive\Emuladores` instead
+  of `SavesBackup`. New optional `LocalBase` (field *Emulator directory*) sets the local
+  base independently, relative to the LaunchBox folder; server paths are resolved inside
+  `ServerBasePath` and refused (`SKIP`) when they would escape it.
+- **fix:** local paths are resolved against the LaunchBox folder instead of the process
+  working directory.
+- **feat:** `sync.log` now records `LAUNCH`/`EXIT` (game, emulator, application) and
+  `SKIP` reasons, plus a warning when an emulator uses a wrapper and `LocalBase` is empty.
+- **fix:** `SyncByEmulator` forwards progress to the UI; `OnGameExited` falls back to the
+  per-game config when no emulator is resolved.
+- **test:** `PathResolverTests` (11 tests) covering the escape regression.
 - **fix:** sync is non-destructive by default. `/PURGE` was passed on every robocopy
   call, so a save that existed on only one side (offline play, power loss, new save
   slot, server folder not yet synced) was deleted by the other side. The default is now
@@ -220,6 +258,30 @@ Configure pastas de save para cada emulador registrado no LaunchBox:
 - Sincroniza automaticamente todas as pastas configuradas para o servidor de backup
 - As configurações são persistidas em arquivos JSON e sobrevivem a atualizações
 
+#### Emuladores iniciados por um wrapper
+
+Quando a entrada do emulador aponta para um wrapper (por exemplo
+`Vita3KWrapper.exe`), os caminhos são relativos à **pasta do wrapper** por padrão.
+Se os dados do emulador ficam em outro lugar, preencha `LocalBase` (campo
+*Emulator directory* na interface) — ele é relativo à pasta do LaunchBox, então
+a árvore continua portátil:
+
+```json
+{
+  "Title": "Vita3K",
+  "FolderName": "PSVita",
+  "LocalBase": "..\\Emuladores\\PSVita\\portable\\fs\\ux0\\user\\00",
+  "RelativePaths": [ "savedata" ]
+}
+```
+
+- local: `D:\Jogos\LaunchBox` + `LocalBase` + `savedata`
+- servidor: `<ServerBasePath>\PSVita\savedata`
+
+O lado do servidor é sempre resolvido **dentro** de `ServerBasePath`: um caminho
+relativo que escaparia dele (como `..\..\..\Emuladores\...`) é recusado e registrado
+como `SKIP`, em vez de gravar fora da pasta de backup.
+
 ### 🎮 Configuração de Saves de Jogos Windows
 
 Configure caminhos de save para jogos Windows individuais:
@@ -262,7 +324,8 @@ está vazia ou o destino não é um caminho absoluto — essa proteção é o qu
 servidor vazia/desmontada de apagar seus saves.
 
 Toda chamada de robocopy é registrada em `Plugins\SaveSync LaunchBox Integration\sync.log`
-(linha de comando + código de saída), para auditoria.
+(linha de comando + código de saída), junto com linhas `LAUNCH`/`EXIT` do ciclo de vida do
+jogo e `SKIP` para caminhos recusados, para auditoria.
 
 ### 🧠 Integridade dos Dados
 
@@ -365,6 +428,19 @@ Depois use `Tools > SaveSync: Emulator Configs` e `Tools > SaveSync: Game Config
   de saída).
 - **refactor:** a montagem dos argumentos do robocopy foi para
   `SaveSyncPlugin.Core.Sync.RobocopyRunner`, compartilhada entre plugin e CLI (estava duplicada).
+- **fix:** caminhos de emuladores iniciados por wrapper. A mesma string relativa era
+  aplicada na base local (pasta do wrapper) e na base do servidor, então
+  `..\..\..\Emuladores\...` escapava do `ServerBasePath` e o "backup" ia para
+  `C:\Drive\Emuladores` em vez de `SavesBackup`. Novo campo opcional `LocalBase`
+  (*Emulator directory*) define a base local, relativa à pasta do LaunchBox; caminhos do
+  servidor são resolvidos dentro de `ServerBasePath` e recusados (`SKIP`) quando escapam.
+- **fix:** caminhos locais resolvidos contra a pasta do LaunchBox, não contra o diretório
+  de trabalho do processo.
+- **feat:** o `sync.log` agora registra `LAUNCH`/`EXIT` (jogo, emulador, aplicativo) e o
+  motivo dos `SKIP`, além de um aviso quando o emulador usa wrapper e `LocalBase` está vazio.
+- **fix:** `SyncByEmulator` encaminha o progresso para a UI; `OnGameExited` cai na config
+  por jogo quando nenhum emulador é resolvido.
+- **test:** `PathResolverTests` (11 testes) cobrindo a regressão do escape.
 - **test:** novo projeto `SaveSyncPlugin.Tests` cobrindo os cenários de exclusão.
 
 ### v0.0.1

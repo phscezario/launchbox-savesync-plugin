@@ -17,6 +17,8 @@ namespace SaveSyncPlugin.UI.Forms
         }
 
         private ListBox lstEmulators;
+        private TextBox txtAppPath;
+        private TextBox txtLocalBase;
         private TextBox txtFolderName;
         private TextBox txtPaths;
         private ToolTip toolTip;
@@ -26,6 +28,11 @@ namespace SaveSyncPlugin.UI.Forms
             lblInfo = new Label();
             lblEmulators = new Label();
             lstEmulators = new ListBox();
+            lblAppPath = new Label();
+            txtAppPath = new TextBox();
+            lblLocalBase = new Label();
+            txtLocalBase = new TextBox();
+            lblLocalBaseHint = new Label();
             lblFolderName = new Label();
             txtFolderName = new TextBox();
             lblFolderHint = new Label();
@@ -65,39 +72,85 @@ namespace SaveSyncPlugin.UI.Forms
             lstEmulators.TabIndex = 2;
             lstEmulators.SelectedIndexChanged += LstEmulators_SelectedIndexChanged;
             // 
+            // lblAppPath
+            // 
+            lblAppPath.Location = new System.Drawing.Point(436, 49);
+            lblAppPath.Name = "lblAppPath";
+            lblAppPath.Size = new System.Drawing.Size(504, 24);
+            lblAppPath.TabIndex = 3;
+            lblAppPath.Text = "Emulator application (from LaunchBox):";
+            // 
+            // txtAppPath
+            // 
+            txtAppPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtAppPath.BackColor = System.Drawing.SystemColors.Control;
+            txtAppPath.Location = new System.Drawing.Point(436, 75);
+            txtAppPath.Name = "txtAppPath";
+            txtAppPath.ReadOnly = true;
+            txtAppPath.Size = new System.Drawing.Size(504, 30);
+            txtAppPath.TabIndex = 4;
+            txtAppPath.TabStop = false;
+            toolTip.SetToolTip(txtAppPath, "Application that LaunchBox starts (the wrapper, when there is one)");
+            // 
+            // lblLocalBase
+            // 
+            lblLocalBase.Location = new System.Drawing.Point(436, 113);
+            lblLocalBase.Name = "lblLocalBase";
+            lblLocalBase.Size = new System.Drawing.Size(504, 24);
+            lblLocalBase.TabIndex = 5;
+            lblLocalBase.Text = "Emulator directory (relative to LaunchBox):";
+            // 
+            // txtLocalBase
+            // 
+            txtLocalBase.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtLocalBase.Location = new System.Drawing.Point(436, 139);
+            txtLocalBase.Name = "txtLocalBase";
+            txtLocalBase.Size = new System.Drawing.Size(504, 30);
+            txtLocalBase.TabIndex = 6;
+            toolTip.SetToolTip(txtLocalBase, "Folder the relative paths start from on this machine. Leave empty to use the folder of the emulator application.");
+            // 
+            // lblLocalBaseHint
+            // 
+            lblLocalBaseHint.ForeColor = System.Drawing.Color.Gray;
+            lblLocalBaseHint.Location = new System.Drawing.Point(436, 173);
+            lblLocalBaseHint.Name = "lblLocalBaseHint";
+            lblLocalBaseHint.Size = new System.Drawing.Size(504, 40);
+            lblLocalBaseHint.TabIndex = 7;
+            lblLocalBaseHint.Text = "empty = folder of the emulator application. ex: ..\\Emuladores\\PSVita\\portable\\fs\\ux0\\user\\00";
+            // 
             // lblFolderName
             // 
-            lblFolderName.Location = new System.Drawing.Point(436, 49);
+            lblFolderName.Location = new System.Drawing.Point(436, 215);
             lblFolderName.Name = "lblFolderName";
-            lblFolderName.Size = new System.Drawing.Size(200, 36);
-            lblFolderName.TabIndex = 3;
+            lblFolderName.Size = new System.Drawing.Size(200, 24);
+            lblFolderName.TabIndex = 8;
             lblFolderName.Text = "Server folder name:";
             lblFolderName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // txtFolderName
             // 
             txtFolderName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtFolderName.Location = new System.Drawing.Point(436, 83);
+            txtFolderName.Location = new System.Drawing.Point(436, 241);
             txtFolderName.Name = "txtFolderName";
-            txtFolderName.Size = new System.Drawing.Size(504, 34);
-            txtFolderName.TabIndex = 4;
+            txtFolderName.Size = new System.Drawing.Size(504, 30);
+            txtFolderName.TabIndex = 9;
             toolTip.SetToolTip(txtFolderName, "Folder name on the server");
             // 
             // lblFolderHint
             // 
             lblFolderHint.ForeColor = System.Drawing.Color.Gray;
-            lblFolderHint.Location = new System.Drawing.Point(436, 119);
+            lblFolderHint.Location = new System.Drawing.Point(436, 275);
             lblFolderHint.Name = "lblFolderHint";
-            lblFolderHint.Size = new System.Drawing.Size(400, 36);
-            lblFolderHint.TabIndex = 5;
+            lblFolderHint.Size = new System.Drawing.Size(400, 24);
+            lblFolderHint.TabIndex = 10;
             lblFolderHint.Text = "ex: \"Arcade\", \"3DS\" (subfolder under server path)";
             // 
             // lblPaths
             // 
-            lblPaths.Location = new System.Drawing.Point(436, 159);
+            lblPaths.Location = new System.Drawing.Point(436, 307);
             lblPaths.Name = "lblPaths";
-            lblPaths.Size = new System.Drawing.Size(400, 36);
-            lblPaths.TabIndex = 6;
+            lblPaths.Size = new System.Drawing.Size(400, 24);
+            lblPaths.TabIndex = 11;
             lblPaths.Text = "Relative paths to sync (one per line):";
             lblPaths.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -105,30 +158,30 @@ namespace SaveSyncPlugin.UI.Forms
             // 
             txtPaths.AcceptsReturn = true;
             txtPaths.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            txtPaths.Location = new System.Drawing.Point(436, 193);
+            txtPaths.Location = new System.Drawing.Point(436, 333);
             txtPaths.Multiline = true;
             txtPaths.Name = "txtPaths";
             txtPaths.ScrollBars = ScrollBars.Vertical;
-            txtPaths.Size = new System.Drawing.Size(504, 288);
-            txtPaths.TabIndex = 7;
-            toolTip.SetToolTip(txtPaths, "One path per line. Files: include extension. Folders: just the folder name.");
+            txtPaths.Size = new System.Drawing.Size(504, 170);
+            txtPaths.TabIndex = 12;
+            toolTip.SetToolTip(txtPaths, "One path per line, relative to the emulator directory (and to the server folder). Files: include extension.");
             // 
             // lblPathHint
             // 
             lblPathHint.ForeColor = System.Drawing.Color.Gray;
-            lblPathHint.Location = new System.Drawing.Point(436, 484);
+            lblPathHint.Location = new System.Drawing.Point(436, 507);
             lblPathHint.Name = "lblPathHint";
-            lblPathHint.Size = new System.Drawing.Size(420, 36);
-            lblPathHint.TabIndex = 8;
-            lblPathHint.Text = "ex: nvram, sta, snap, _FinalBurnNeo\\arcadeController\\savestates";
+            lblPathHint.Size = new System.Drawing.Size(504, 40);
+            lblPathHint.TabIndex = 13;
+            lblPathHint.Text = "ex: savedata, nvram, sta, snap, _FinalBurnNeo\\arcadeController\\savestates";
             // 
             // btnSave
             // 
             btnSave.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            btnSave.Location = new System.Drawing.Point(436, 523);
+            btnSave.Location = new System.Drawing.Point(436, 555);
             btnSave.Name = "btnSave";
             btnSave.Size = new System.Drawing.Size(130, 40);
-            btnSave.TabIndex = 9;
+            btnSave.TabIndex = 14;
             btnSave.Text = "Save Config";
             btnSave.Click += BtnSave_Click;
             // 
@@ -161,6 +214,11 @@ namespace SaveSyncPlugin.UI.Forms
             Controls.Add(lblInfo);
             Controls.Add(lblEmulators);
             Controls.Add(lstEmulators);
+            Controls.Add(lblAppPath);
+            Controls.Add(txtAppPath);
+            Controls.Add(lblLocalBase);
+            Controls.Add(txtLocalBase);
+            Controls.Add(lblLocalBaseHint);
             Controls.Add(lblFolderName);
             Controls.Add(txtFolderName);
             Controls.Add(lblFolderHint);
@@ -181,6 +239,9 @@ namespace SaveSyncPlugin.UI.Forms
 
         private Label lblInfo;
         private Label lblEmulators;
+        private Label lblAppPath;
+        private Label lblLocalBase;
+        private Label lblLocalBaseHint;
         private Label lblFolderName;
         private Label lblFolderHint;
         private Label lblPaths;

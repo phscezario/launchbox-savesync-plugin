@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.Core.Sync;
 using SaveSyncPlugin.Services;
 using SaveSyncPlugin.UI.Forms;
 using Unbroken.LaunchBox.Plugins;
@@ -58,6 +59,11 @@ namespace SaveSyncPlugin
         public void OnBeforeGameLaunching(IGame game, IAdditionalApplication app, IEmulator emulator)
         {
             _lastGame = game;
+
+            // Proof that the plugin is tracking the launch, and which application
+            // (the wrapper, when there is one) LaunchBox actually started.
+            SyncLog.Write(
+                $"LAUNCH  {game?.Title ?? "(sem titulo)"} | emulator={emulator?.Id ?? game?.EmulatorId ?? "-"} | app={emulator?.ApplicationPath ?? "-"}");
         }
 
         public void OnAfterGameLaunched(IGame game, IAdditionalApplication app, IEmulator emulator)
@@ -69,25 +75,42 @@ namespace SaveSyncPlugin
             try
             {
                 var settings = SaveSyncStorage.LoadSettings();
-                if (!settings.SyncOnGameClose || _lastGame == null) return;
+
+                if (!settings.SyncOnGameClose)
+                {
+                    SyncLog.Write("EXIT    (sync on game close disabled)");
+                    return;
+                }
+
+                if (_lastGame == null)
+                {
+                    SyncLog.Write("EXIT    (no game tracked)");
+                    return;
+                }
+
+                var game = _lastGame;
+
+                SyncLog.Write($"EXIT    {game.Title ?? "(sem titulo)"} | emulator={game.EmulatorId ?? "-"}");
 
                 using (var form = new ProgressForm())
                 {
                     var progress = new Progress<string>(m => form.SetStatus(m));
                     Task task;
 
-                    if (!string.IsNullOrEmpty(_lastGame.EmulatorId))
+                    var emulator = string.IsNullOrEmpty(game.EmulatorId)
+                        ? null
+                        : PluginHelper.DataManager.GetEmulatorById(game.EmulatorId);
+
+                    if (emulator != null)
                     {
-                        var emulator = PluginHelper.DataManager.GetEmulatorById(_lastGame.EmulatorId);
-                        if (emulator != null)
-                            task = Task.Run(() =>
-                                _syncService.SyncByEmulator(emulator, progress));
-                        else return;
+                        task = Task.Run(() => _syncService.SyncByEmulator(emulator, progress));
                     }
                     else
                     {
-                        task = Task.Run(() =>
-                            _syncService.SyncByGame(_lastGame, progress));
+                        // No emulator resolved: fall back to the per-game config instead
+                        // of silently leaving the save unsynced.
+                        SyncLog.Write($"WARN    EXIT without emulator (id={game.EmulatorId ?? "-"}); trying game config");
+                        task = Task.Run(() => _syncService.SyncByGame(game, progress));
                     }
 
                     form.Shown += async (_, _) =>
@@ -104,7 +127,7 @@ namespace SaveSyncPlugin
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[SaveSync] GameExited error: " + ex);
+                SyncLog.Write($"FAIL    OnGameExited: {ex.Message}");
             }
         }
     }

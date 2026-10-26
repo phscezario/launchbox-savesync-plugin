@@ -134,7 +134,7 @@ namespace SaveSyncPlugin.Services
             if (config != null)
             {
                 progress?.Report($"Syncing emulator: {config.Title ?? config.FolderName}");
-                SyncEmulator(config);
+                SyncEmulator(config, progress);
             }
         }
 
@@ -144,17 +144,43 @@ namespace SaveSyncPlugin.Services
             if (emulator?.ApplicationPath == null) return null;
 
             var settings = SaveSyncStorage.LoadSettings();
-            var emuDir = Path.GetDirectoryName(emulator.ApplicationPath);
+            var folderName = config.FolderName ?? config.Title ?? "Unknown";
 
-            var localBase = emuDir;
+            // The local base is the emulator directory when the user configured one.
+            // Without it the paths start at the application folder — for a wrapped
+            // emulator that is the wrapper folder, which is why paths used to escape
+            // with "..\..\.." and the server side ended up outside the backup folder.
+            if (PathResolver.UsesWrapper(emulator.ApplicationPath) && string.IsNullOrWhiteSpace(config.LocalBase))
+            {
+                SyncLog.Write(
+                    $"WARN    {config.Title ?? folderName}: emulator app is a wrapper ({emulator.ApplicationPath}) " +
+                    "and LocalBase is empty; relative paths start at the wrapper folder");
+            }
 
-            var serverBase = Path.Combine(settings.ServerBasePath ?? "", config.FolderName ?? config.Title ?? "Unknown");
+            var launchBoxRoot = AppDomain.CurrentDomain.BaseDirectory;
 
             var paths = new List<(string, string)>();
             foreach (var rel in config.RelativePaths)
             {
                 if (string.IsNullOrWhiteSpace(rel)) continue;
-                paths.Add((Path.Combine(localBase, rel), Path.Combine(serverBase, rel)));
+
+                var local = PathResolver.ResolveLocal(launchBoxRoot, emulator.ApplicationPath, config.LocalBase, rel);
+                var server = PathResolver.ResolveServer(settings.ServerBasePath, folderName, rel);
+
+                if (local == null)
+                {
+                    SyncLog.Write($"SKIP    {folderName}: caminho local invalido para \"{rel}\"");
+                    continue;
+                }
+
+                if (server == null)
+                {
+                    SyncLog.Write(
+                        $"SKIP    {folderName}: caminho do servidor invalido ou fora de \"{settings.ServerBasePath}\" para \"{rel}\"");
+                    continue;
+                }
+
+                paths.Add((local, server));
             }
             return paths;
         }
