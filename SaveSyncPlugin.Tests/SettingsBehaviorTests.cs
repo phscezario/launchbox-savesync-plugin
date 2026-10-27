@@ -65,6 +65,34 @@ namespace SaveSyncPlugin.Tests
         }
 
         [Fact]
+        public void DeleteExtraneous_DefaultFalse()
+        {
+            // The only switch that allows robocopy /PURGE. Default must stay false:
+            // with /PURGE a save that exists on only one side is deleted.
+            var settings = new SaveSyncSettings();
+
+            Assert.False(settings.DeleteExtraneous);
+        }
+
+        [Fact]
+        public void Serialization_WithoutDeleteExtraneous_DefaultsToFalse()
+        {
+            // settings.json written by v0.0.1 has no DeleteExtraneous key: loading it
+            // must not turn mirror mode on.
+            var json = @"{
+                ""ServerBasePath"": ""C:\\saves"",
+                ""SyncOnStartup"": true,
+                ""SyncOnGameClose"": true,
+                ""AlwaysKeepNewer"": true,
+                ""AskOnConflict"": true
+            }";
+
+            var settings = JsonConvert.DeserializeObject<SaveSyncSettings>(json);
+
+            Assert.False(settings.DeleteExtraneous);
+        }
+
+        [Fact]
         public void Serialization_Roundtrip_PreservesValues()
         {
             var settings = new SaveSyncSettings
@@ -74,6 +102,7 @@ namespace SaveSyncPlugin.Tests
                 SyncOnGameClose = false,
                 AlwaysKeepNewer = false,
                 AskOnConflict = false,
+                DeleteExtraneous = true,
                 RobocopyThreads = 16,
                 RobocopyRetries = 5,
                 RobocopyWaitSeconds = 20
@@ -87,6 +116,7 @@ namespace SaveSyncPlugin.Tests
             Assert.False(deserialized.SyncOnGameClose);
             Assert.False(deserialized.AlwaysKeepNewer);
             Assert.False(deserialized.AskOnConflict);
+            Assert.True(deserialized.DeleteExtraneous);
             Assert.Equal(16, deserialized.RobocopyThreads);
             Assert.Equal(5, deserialized.RobocopyRetries);
             Assert.Equal(20, deserialized.RobocopyWaitSeconds);
