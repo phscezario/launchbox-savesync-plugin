@@ -70,6 +70,44 @@ namespace SaveSyncPlugin.Core.Sync
             return Path.GetFileName(applicationPath).IndexOf("wrapper", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>
+        /// Finds the LaunchBox folder from any directory inside the install (the
+        /// plugin folder, when the CLI runs as a separate process). Relative paths in
+        /// <see cref="Models.EmulatorSaveConfig.LocalBase"/> are resolved against it,
+        /// never against the process working directory.
+        /// </summary>
+        public static string FindLaunchBoxRoot(string startDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(startDirectory))
+                return null;
+
+            try
+            {
+                var dir = new DirectoryInfo(Path.GetFullPath(startDirectory));
+                string pluginsParent = null;
+
+                while (dir != null)
+                {
+                    if (File.Exists(Path.Combine(dir.FullName, "LaunchBox.exe")))
+                        return dir.FullName;
+
+                    if (pluginsParent == null &&
+                        string.Equals(dir.Name, "Plugins", StringComparison.OrdinalIgnoreCase))
+                    {
+                        pluginsParent = dir.Parent?.FullName;
+                    }
+
+                    dir = dir.Parent;
+                }
+
+                return pluginsParent ?? Path.GetFullPath(startDirectory);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static bool IsUnder(string path, string root)
         {
             if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(root))

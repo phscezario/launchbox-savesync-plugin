@@ -101,5 +101,61 @@ namespace SaveSyncPlugin.Tests
         {
             Assert.Equal(expected, PathResolver.UsesWrapper(applicationPath));
         }
+
+        // ---------------- LaunchBox root discovery ----------------
+
+        [Fact]
+        public void FindLaunchBoxRoot_FromPluginFolder_ReturnsInstallRoot()
+        {
+            var root = CreateTree(out var cleanup);
+            try
+            {
+                var pluginFolder = Path.Combine(root, "Plugins", "SaveSync LaunchBox Integration");
+
+                Assert.Equal(root, PathResolver.FindLaunchBoxRoot(pluginFolder));
+            }
+            finally { cleanup(); }
+        }
+
+        [Fact]
+        public void FindLaunchBoxRoot_WithoutExecutable_FallsBackToPluginsParent()
+        {
+            var root = CreateTree(out var cleanup, createExecutable: false);
+            try
+            {
+                var pluginFolder = Path.Combine(root, "Plugins", "SaveSync LaunchBox Integration");
+
+                Assert.Equal(root, PathResolver.FindLaunchBoxRoot(pluginFolder));
+            }
+            finally { cleanup(); }
+        }
+
+        [Fact]
+        public void FindLaunchBoxRoot_FromInstallRoot_ReturnsItself()
+        {
+            var root = CreateTree(out var cleanup);
+            try
+            {
+                Assert.Equal(root, PathResolver.FindLaunchBoxRoot(root));
+            }
+            finally { cleanup(); }
+        }
+
+        private static string CreateTree(out Action cleanup, bool createExecutable = true)
+        {
+            var root = Path.Combine(Path.GetTempPath(), "savesync-tests", Guid.NewGuid().ToString("N"));
+            var pluginFolder = Path.Combine(root, "Plugins", "SaveSync LaunchBox Integration");
+            Directory.CreateDirectory(pluginFolder);
+
+            if (createExecutable)
+                File.WriteAllText(Path.Combine(root, "LaunchBox.exe"), string.Empty);
+
+            cleanup = () =>
+            {
+                try { Directory.Delete(root, true); } catch { }
+            };
+
+            return root;
+        }
     }
 }

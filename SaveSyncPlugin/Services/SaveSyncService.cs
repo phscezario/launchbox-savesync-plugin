@@ -157,7 +157,8 @@ namespace SaveSyncPlugin.Services
                     "and LocalBase is empty; relative paths start at the wrapper folder");
             }
 
-            var launchBoxRoot = AppDomain.CurrentDomain.BaseDirectory;
+            var launchBoxRoot = PathResolver.FindLaunchBoxRoot(AppDomain.CurrentDomain.BaseDirectory)
+                                ?? AppDomain.CurrentDomain.BaseDirectory;
 
             var paths = new List<(string, string)>();
             foreach (var rel in config.RelativePaths)
