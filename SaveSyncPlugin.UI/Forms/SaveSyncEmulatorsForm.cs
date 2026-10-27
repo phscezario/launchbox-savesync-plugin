@@ -72,15 +72,20 @@ namespace SaveSyncPlugin.UI.Forms
             var item = lstEmulators.SelectedItem as EmulatorListItem;
             _currentEmulator = item?.Emulator;
             _selected = null;
+            txtAppPath.Text = "";
+            txtLocalBase.Text = "";
             txtFolderName.Text = "";
             txtPaths.Text = "";
 
             if (_currentEmulator == null) return;
 
+            txtAppPath.Text = _currentEmulator.ApplicationPath ?? "";
+
             _selected = _configs.Find(c => c.EmulatorId == _currentEmulator.Id);
             if (_selected != null)
             {
                 _selected.Title = _currentEmulator.Title ?? _selected.Title;
+                txtLocalBase.Text = _selected.LocalBase ?? "";
                 txtFolderName.Text = _selected.FolderName ?? "";
                 txtPaths.Text = string.Join("\r\n", _selected.RelativePaths);
             }
@@ -118,6 +123,7 @@ namespace SaveSyncPlugin.UI.Forms
             if (_currentEmulator == null) return;
 
             var folderName = txtFolderName.Text.Trim();
+            var localBase = txtLocalBase.Text.Trim();
             var paths = txtPaths.Text
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => p.Trim())
@@ -143,6 +149,7 @@ namespace SaveSyncPlugin.UI.Forms
 
             existing.Title = _currentEmulator.Title ?? folderName;
             existing.FolderName = string.IsNullOrWhiteSpace(folderName) ? existing.Title : folderName;
+            existing.LocalBase = string.IsNullOrWhiteSpace(localBase) ? null : localBase;
             existing.RelativePaths = paths;
         }
     }

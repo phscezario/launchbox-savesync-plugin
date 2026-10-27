@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using SaveSyncPlugin.Core.Models;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.Core.Sync;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -73,18 +74,32 @@ namespace SaveSyncPlugin.CLI
             }
 
             var settings = SaveSyncStorage.LoadSettings();
-            var emuDir = Path.GetDirectoryName(emulator.ApplicationPath);
-            if (emuDir == null) return;
-
-            var localBase = emuDir;
-
-            var serverBase = Path.Combine(settings.ServerBasePath, config.FolderName ?? config.Title ?? "Unknown");
+            var folderName = config.FolderName ?? config.Title ?? "Unknown";
+            var launchBoxRoot = PathResolver.FindLaunchBoxRoot(AppDomain.CurrentDomain.BaseDirectory);
 
             foreach (var rel in config.RelativePaths)
             {
                 if (string.IsNullOrWhiteSpace(rel)) continue;
-                var local = Path.Combine(localBase, rel);
-                var server = Path.Combine(serverBase, rel);
+
+                // Same resolution as the plugin: LocalBase (relative to the LaunchBox
+                // folder) for the local side, and the server side confined to
+                // ServerBasePath. Without this the CLI kept the old escaping path.
+                var local = PathResolver.ResolveLocal(
+                    launchBoxRoot, emulator.ApplicationPath, config.LocalBase, rel);
+                var server = PathResolver.ResolveServer(settings.ServerBasePath, folderName, rel);
+
+                if (local == null)
+                {
+                    Console.Error.WriteLine($"Skip {folderName}: invalid local path for \"{rel}\"");
+                    continue;
+                }
+
+                if (server == null)
+                {
+                    Console.Error.WriteLine(
+                        $"Skip {folderName}: server path for \"{rel}\" is invalid or outside \"{settings.ServerBasePath}\"");
+                    continue;
+                }
 
                 switch (action)
                 {
@@ -181,35 +196,9 @@ namespace SaveSyncPlugin.CLI
 
         private static void RobocopyCopy(string source, string dest, string fileFilter = null)
         {
-            try
-            {
-                if (!Directory.Exists(source)) return;
-                Directory.CreateDirectory(dest);
-
-                var settings = SaveSyncStorage.LoadSettings();
-                var mt = settings.RobocopyThreads;
-                var r = settings.RobocopyRetries;
-                var w = settings.RobocopyWaitSeconds;
-
-                var args = string.IsNullOrEmpty(fileFilter)
-                    ? $"\"{source}\" \"{dest}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}"
-                    : $"\"{source}\" \"{dest}\" \"{fileFilter}\" /E /XO /PURGE /Z /MT:{mt} /R:{r} /W:{w}";
-
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "robocopy.exe",
-                    Arguments = args,
-                    CreateNoWindow = true,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                    UseShellExecute = false
-                };
-
-                using (var proc = System.Diagnostics.Process.Start(psi))
-                    proc?.WaitForExit(300000);
-            }
-            catch
-            {
-            }
+            // Same non-destructive runner used by the plugin: no /PURGE unless the
+            // user enabled DeleteExtraneous in settings.json.
+            RobocopyRunner.Run(source, dest, fileFilter, SaveSyncStorage.LoadSettings());
         }
     }
 }
