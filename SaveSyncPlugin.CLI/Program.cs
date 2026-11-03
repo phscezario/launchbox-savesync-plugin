@@ -1,6 +1,7 @@
 using System;
 using System.Windows.Forms;
 using SaveSyncPlugin.Core.Storage;
+using SaveSyncPlugin.Core.Sync;
 using SaveSyncPlugin.Services;
 using SaveSyncPlugin.UI.Forms;
 
@@ -23,6 +24,9 @@ namespace SaveSyncPlugin.CLI
             }
 
             var action = args[0].ToLower();
+
+            // Also writes the ROOT header line (PluginPaths.Describe).
+            SyncLog.Write($"CLI     {string.Join(" ", args)}");
 
             if (action == "settings")
             {

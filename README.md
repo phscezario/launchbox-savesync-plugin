@@ -237,6 +237,28 @@ Then use `Tools > SaveSync: Emulator Configs` and `Tools > SaveSync: Game Config
 - **refactor:** robocopy argument building moved to `SaveSyncPlugin.Core.Sync.RobocopyRunner`,
   shared by the plugin and the CLI (it was duplicated).
 - **test:** new `SaveSyncPlugin.Tests` project covering the deletion scenarios.
+- **fix:** conflicts are detected by content, not by timestamp. A startup run logged 21
+  conflicts on byte-identical files whose timestamps differed by milliseconds; size + SHA256
+  now means "no conflict", and a file that exists on only one side is a normal copy instead of
+  a conflict. Equal timestamps with different bytes are also detected (robocopy `/XO` used to
+  skip them silently and leave the two sides diverged).
+- **fix:** download and upload can no longer write in the opposite direction. `Download*` only
+  writes server → local and `Upload*` only local → server; the newest-wins reversal is limited
+  to `Sync*` (manual/bidirectional). This is what let a startup download upload a newer local
+  file. Blocked reversals are logged as `SKIP {direction}: ...`.
+- **fix:** `AlwaysKeepNewer` takes priority over `AskOnConflict`, and the conflict dialog is
+  only shown in the bidirectional sync — a background startup sync no longer blocks on it.
+- **feat:** tolerant game title matching (`TitleMatcher`). A `games.json` title may differ from
+  the LaunchBox library by case, accents, punctuation or subtitle; the normalized match is
+  accepted only when exactly one library game matches, and ambiguity is reported as not found.
+- **fix:** the plugin folder is resolved from the loaded assembly (`PluginPaths`) instead of
+  assuming `Core\Plugins`, and the resolved structure is logged as `ROOT` (root, base, cwd and
+  assembly paths).
+- **fix:** 14 game titles in `games.json`/`default_games.json` were aligned with the LaunchBox
+  library names so the per-game configs resolve; `folderName` (which defines the server path)
+  was left untouched.
+- **feat:** single-file emulators. Xemu points at `Xbox` and syncs `xbox_hdd.qcow2` and
+  `eeprom.bin` through a file filter instead of copying the whole folder.
 
 ### v0.0.1
 - Initial release
@@ -480,6 +502,30 @@ Depois use `Tools > SaveSync: Emulator Configs` e `Tools > SaveSync: Game Config
   por jogo quando nenhum emulador é resolvido.
 - **test:** `PathResolverTests` (11 testes) cobrindo a regressão do escape.
 - **test:** novo projeto `SaveSyncPlugin.Tests` cobrindo os cenários de exclusão.
+- **fix:** conflitos são detectados por conteúdo, não por data/hora. Uma execução de startup
+  registrou 21 conflitos em arquivos idênticos que diferiam só por milissegundos; tamanho +
+  SHA256 agora significa "sem conflito", e arquivo que existe só de um lado é cópia normal, não
+  conflito. Datas iguais com conteúdos diferentes também são detectadas (o `/XO` do robocopy
+  pulava esses casos em silêncio e deixava os dois lados divergentes).
+- **fix:** download e upload não escrevem mais no sentido inverso. `Download*` só grava
+  servidor → local e `Upload*` só local → servidor; a inversão "mais novo vence" fica restrita
+  ao `Sync*` (manual/bidirecional). Era isso que deixava um download de startup subir um
+  arquivo local mais novo. Inversões bloqueadas são registradas como `SKIP {direction}: ...`.
+- **fix:** `AlwaysKeepNewer` tem prioridade sobre `AskOnConflict`, e o diálogo de conflito só
+  aparece na sincronização bidirecional — o sync de startup em segundo plano não fica mais
+  preso esperando uma resposta.
+- **feat:** correspondência tolerante de títulos (`TitleMatcher`). O título do `games.json` pode
+  diferir da biblioteca do LaunchBox por maiúsculas, acentos, pontuação ou subtítulo; o
+  casamento normalizado só é aceito quando exatamente um jogo da biblioteca corresponde, e
+  ambiguidade é reportada como não encontrado.
+- **fix:** a pasta do plugin é resolvida a partir da assembly carregada (`PluginPaths`) em vez de
+  assumir `Core\Plugins`, e a estrutura resolvida é registrada como `ROOT` (raiz, base, cwd e
+  caminho da assembly).
+- **fix:** 14 títulos de `games.json`/`default_games.json` foram alinhados com os nomes da
+  biblioteca do LaunchBox para as configs por jogo resolverem; `folderName` (que define o
+  caminho no servidor) não foi alterado.
+- **feat:** emuladores de arquivo único. O Xemu aponta para `Xbox` e sincroniza
+  `xbox_hdd.qcow2` e `eeprom.bin` por filtro de arquivo, sem copiar a pasta inteira.
 
 ### v0.0.1
 - Versão inicial

@@ -19,6 +19,8 @@ namespace SaveSyncPlugin.UI.Forms
         private ListBox lstEmulators;
         private TextBox txtAppPath;
         private TextBox txtLocalBase;
+        private Button btnLocalDefault;
+        private Button btnBrowse;
         private TextBox txtFolderName;
         private TextBox txtPaths;
         private ToolTip toolTip;
@@ -32,6 +34,8 @@ namespace SaveSyncPlugin.UI.Forms
             txtAppPath = new TextBox();
             lblLocalBase = new Label();
             txtLocalBase = new TextBox();
+            btnLocalDefault = new Button();
+            btnBrowse = new Button();
             lblLocalBaseHint = new Label();
             lblFolderName = new Label();
             txtFolderName = new TextBox();
@@ -51,7 +55,7 @@ namespace SaveSyncPlugin.UI.Forms
             lblInfo.Name = "lblInfo";
             lblInfo.Size = new System.Drawing.Size(700, 30);
             lblInfo.TabIndex = 0;
-            lblInfo.Text = "Select an emulator, then configure the server folder name and paths to sync.";
+            lblInfo.Text = "Select an emulator, then configure the server folder name and the relative paths to sync. Emulator paths are relative to the LaunchBox folder, never absolute.";
             lblInfo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblEmulators
@@ -102,12 +106,35 @@ namespace SaveSyncPlugin.UI.Forms
             // 
             // txtLocalBase
             // 
-            txtLocalBase.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtLocalBase.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             txtLocalBase.Location = new System.Drawing.Point(436, 139);
             txtLocalBase.Name = "txtLocalBase";
-            txtLocalBase.Size = new System.Drawing.Size(504, 30);
+            txtLocalBase.Size = new System.Drawing.Size(290, 30);
             txtLocalBase.TabIndex = 6;
-            toolTip.SetToolTip(txtLocalBase, "Folder the relative paths start from on this machine. Leave empty to use the folder of the emulator application.");
+            txtLocalBase.TextChanged += TxtLocalBase_TextChanged;
+            toolTip.SetToolTip(txtLocalBase, "Folder the relative paths start from on this machine. Relative to the LaunchBox folder. Leave empty to use the folder of the emulator application.");
+            // 
+            // btnLocalDefault
+            // 
+            btnLocalDefault.Location = new System.Drawing.Point(732, 139);
+            btnLocalDefault.Name = "btnLocalDefault";
+            btnLocalDefault.Size = new System.Drawing.Size(100, 30);
+            btnLocalDefault.TabIndex = 7;
+            btnLocalDefault.Text = "Default";
+            btnLocalDefault.UseVisualStyleBackColor = true;
+            btnLocalDefault.Click += BtnLocalDefault_Click;
+            toolTip.SetToolTip(btnLocalDefault, "Clear the field: use the folder of the emulator application (portable default)");
+            // 
+            // btnBrowse
+            // 
+            btnBrowse.Location = new System.Drawing.Point(838, 139);
+            btnBrowse.Name = "btnBrowse";
+            btnBrowse.Size = new System.Drawing.Size(102, 30);
+            btnBrowse.TabIndex = 8;
+            btnBrowse.Text = "Browse...";
+            btnBrowse.UseVisualStyleBackColor = true;
+            btnBrowse.Click += BtnBrowse_Click;
+            toolTip.SetToolTip(btnBrowse, "Pick the emulator folder; it is stored relative to the LaunchBox folder");
             // 
             // lblLocalBaseHint
             // 
@@ -115,7 +142,7 @@ namespace SaveSyncPlugin.UI.Forms
             lblLocalBaseHint.Location = new System.Drawing.Point(436, 173);
             lblLocalBaseHint.Name = "lblLocalBaseHint";
             lblLocalBaseHint.Size = new System.Drawing.Size(504, 40);
-            lblLocalBaseHint.TabIndex = 7;
+            lblLocalBaseHint.TabIndex = 9;
             lblLocalBaseHint.Text = "empty = folder of the emulator application. ex: ..\\Emuladores\\PSVita\\portable\\fs\\ux0\\user\\00";
             // 
             // lblFolderName
@@ -218,6 +245,8 @@ namespace SaveSyncPlugin.UI.Forms
             Controls.Add(txtAppPath);
             Controls.Add(lblLocalBase);
             Controls.Add(txtLocalBase);
+            Controls.Add(btnLocalDefault);
+            Controls.Add(btnBrowse);
             Controls.Add(lblLocalBaseHint);
             Controls.Add(lblFolderName);
             Controls.Add(txtFolderName);

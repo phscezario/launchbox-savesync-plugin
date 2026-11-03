@@ -7,29 +7,26 @@ namespace SaveSyncPlugin.Core.Sync
     /// Minimal append-only log for sync operations, written next to the plugin
     /// DLLs (<c>sync.log</c>). Robocopy output is otherwise invisible: the plugin
     /// only used <c>Debug.WriteLine</c>, which nobody sees in a release build.
+    ///
+    /// The first line of every process is the <c>ROOT</c> line from
+    /// <see cref="PluginPaths.Describe"/>, so a wrong install root can be spotted
+    /// without guessing.
     /// </summary>
     public static class SyncLog
     {
-        private const string PluginFolderName = "SaveSync LaunchBox Integration";
         private const long MaxBytes = 2 * 1024 * 1024;
 
         private static readonly object Gate = new object();
+        private static bool _headerWritten;
 
-        public static string FilePath => Path.Combine(PluginDirectory, "sync.log");
+        public static string PluginDirectory => PluginPaths.PluginFolder;
 
-        private static string PluginDirectory
+        public static string FilePath
         {
             get
             {
-                // Inside LaunchBox, BaseDirectory is the LaunchBox folder.
-                // Running the CLI, BaseDirectory is already the plugin folder.
-                var baseDir = AppDomain.CurrentDomain.BaseDirectory
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                if (string.Equals(Path.GetFileName(baseDir), PluginFolderName, StringComparison.OrdinalIgnoreCase))
-                    return baseDir;
-
-                return Path.Combine(baseDir, "Plugins", PluginFolderName);
+                var dir = PluginDirectory;
+                return string.IsNullOrWhiteSpace(dir) ? null : Path.Combine(dir, "sync.log");
             }
         }
 
@@ -39,24 +36,40 @@ namespace SaveSyncPlugin.Core.Sync
             {
                 lock (Gate)
                 {
-                    Directory.CreateDirectory(PluginDirectory);
+                    var directory = PluginDirectory;
+                    if (string.IsNullOrWhiteSpace(directory))
+                        return;
 
-                    var file = FilePath;
-                    var info = new FileInfo(file);
-                    if (info.Exists && info.Length > MaxBytes)
+                    Directory.CreateDirectory(directory);
+
+                    if (!_headerWritten)
                     {
-                        var previous = Path.Combine(PluginDirectory, "sync.prev.log");
-                        try { File.Copy(file, previous, true); } catch { }
-                        try { File.WriteAllText(file, string.Empty); } catch { }
+                        // Set before writing so a failure here cannot loop forever.
+                        _headerWritten = true;
+                        Append(directory, PluginPaths.Describe());
                     }
 
-                    File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
+                    Append(directory, message);
                 }
             }
             catch
             {
                 // Logging must never break a sync.
             }
+        }
+
+        private static void Append(string directory, string message)
+        {
+            var file = Path.Combine(directory, "sync.log");
+            var info = new FileInfo(file);
+            if (info.Exists && info.Length > MaxBytes)
+            {
+                var previous = Path.Combine(directory, "sync.prev.log");
+                try { File.Copy(file, previous, true); } catch { }
+                try { File.WriteAllText(file, string.Empty); } catch { }
+            }
+
+            File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
         }
     }
 }
