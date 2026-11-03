@@ -114,7 +114,7 @@ namespace SaveSyncPlugin.Tests
         }
 
         [Fact]
-        public void Conflict_WhenFileOnlyInDest()
+        public void NoConflict_WhenFileOnlyInDest()
         {
             var source = Path.Combine(_testDir, "source");
             var dest = Path.Combine(_testDir, "dest");
@@ -125,9 +125,55 @@ namespace SaveSyncPlugin.Tests
 
             var result = _service.DetectConflict(source, dest, null);
 
+            // One-sided files are a normal copy, not a conflict. Treating them as a
+            // conflict is what let a startup download upload local-only files.
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void NoConflict_WhenContentIsIdenticalButTimestampsDiffer()
+        {
+            var source = Path.Combine(_testDir, "source");
+            var dest = Path.Combine(_testDir, "dest");
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(dest);
+
+            var file = "save.sav";
+            File.WriteAllText(Path.Combine(source, file), "same bytes");
+            File.SetLastWriteTime(Path.Combine(source, file), new DateTime(2025, 1, 1));
+
+            File.WriteAllText(Path.Combine(dest, file), "same bytes");
+            File.SetLastWriteTime(Path.Combine(dest, file), new DateTime(2020, 1, 1));
+
+            var result = _service.DetectConflict(source, dest, null);
+
+            // Byte-identical saves used to be logged as conflicts because only the
+            // timestamps were compared (21 of them in one startup run).
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void Conflict_WhenTimestampIsEqualButContentDiffers()
+        {
+            var source = Path.Combine(_testDir, "source");
+            var dest = Path.Combine(_testDir, "dest");
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(dest);
+
+            var file = "save.sav";
+            var sameTime = new DateTime(2025, 7, 17, 14, 30, 0);
+
+            File.WriteAllText(Path.Combine(source, file), "new content");
+            File.SetLastWriteTime(Path.Combine(source, file), sameTime);
+
+            File.WriteAllText(Path.Combine(dest, file), "old content");
+            File.SetLastWriteTime(Path.Combine(dest, file), sameTime);
+
+            var result = _service.DetectConflict(source, dest, null);
+
+            // Equal timestamps used to hide the difference: robocopy /XO copied
+            // nothing and the two sides silently diverged.
             Assert.NotNull(result);
-            Assert.False(result.LocalIsNewer);
-            Assert.Equal(0, result.LocalSize);
         }
 
         [Fact]
@@ -192,10 +238,10 @@ namespace SaveSyncPlugin.Tests
             var sourceTime = new DateTime(2025, 7, 17, 14, 30, 0);
             var destTime = new DateTime(2025, 7, 16, 9, 15, 0);
 
-            File.WriteAllText(Path.Combine(source, file), "content");
+            File.WriteAllText(Path.Combine(source, file), "source content");
             File.SetLastWriteTime(Path.Combine(source, file), sourceTime);
 
-            File.WriteAllText(Path.Combine(dest, file), "content");
+            File.WriteAllText(Path.Combine(dest, file), "dest content");
             File.SetLastWriteTime(Path.Combine(dest, file), destTime);
 
             var result = _service.DetectConflict(source, dest, null);

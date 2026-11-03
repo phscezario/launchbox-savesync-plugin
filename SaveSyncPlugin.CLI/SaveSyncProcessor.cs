@@ -75,7 +75,12 @@ namespace SaveSyncPlugin.CLI
 
             var settings = SaveSyncStorage.LoadSettings();
             var folderName = config.FolderName ?? config.Title ?? "Unknown";
-            var launchBoxRoot = PathResolver.FindLaunchBoxRoot(AppDomain.CurrentDomain.BaseDirectory);
+            var launchBoxRoot = PluginPaths.LaunchBoxRoot;
+            if (string.IsNullOrWhiteSpace(launchBoxRoot))
+            {
+                Console.Error.WriteLine($"Skip {folderName}: LaunchBox root not found.");
+                return;
+            }
 
             foreach (var rel in config.RelativePaths)
             {
@@ -129,17 +134,22 @@ namespace SaveSyncPlugin.CLI
 
         private void ProcessGamePaths(string action, IGame game, GameSaveConfig config, SaveSyncSettings settings)
         {
-            var serverBase = Path.Combine(settings.ServerBasePath, "WindowsGames",
-                config.FolderName ?? config.Title ?? game.Title ?? "Unknown");
+            var folderName = config.FolderName ?? config.Title ?? game.Title ?? "Unknown";
+            var serverBase = PathResolver.ResolveServer(settings.ServerBasePath, "WindowsGames", folderName);
+            if (serverBase == null)
+            {
+                Console.Error.WriteLine(
+                    $"Skip {folderName}: ServerBasePath is not configured or the path is invalid \"{settings.ServerBasePath}\"");
+                return;
+            }
 
             string localBase = null;
             switch (config.SaveType?.ToLower())
             {
                 case "relative":
                 {
-                    var gameFolder = Path.GetDirectoryName(game.ApplicationPath);
-                    if (gameFolder == null) return;
-                    localBase = gameFolder;
+                    localBase = PathResolver.ResolveLocalBase(
+                        PluginPaths.LaunchBoxRoot, game.ApplicationPath, null);
                     break;
                 }
                 case "appdata":
@@ -155,7 +165,11 @@ namespace SaveSyncPlugin.CLI
                     return;
             }
 
-            if (localBase == null) return;
+            if (string.IsNullOrWhiteSpace(localBase))
+            {
+                Console.Error.WriteLine($"Skip {folderName}: local folder not resolved (app={game.ApplicationPath})");
+                return;
+            }
 
             var paths = config.RelativePaths ?? new System.Collections.Generic.List<string>();
             if (paths.Count == 0)
@@ -167,6 +181,12 @@ namespace SaveSyncPlugin.CLI
                 foreach (var rel in paths)
                 {
                     if (string.IsNullOrWhiteSpace(rel)) continue;
+                    if (PathResolver.IsAbsolute(rel))
+                    {
+                        Console.Error.WriteLine($"Skip {folderName}: \"{rel}\" is absolute; use a relative path");
+                        continue;
+                    }
+
                     var fileName = Path.GetFileName(rel);
                     bool isFile = fileName.IndexOf('.') >= 0;
                     if (isFile)
@@ -175,7 +195,14 @@ namespace SaveSyncPlugin.CLI
                     }
                     else
                     {
-                        RunAction(action, Path.Combine(localBase, rel), Path.Combine(serverBase, rel), null);
+                        var dest = PathResolver.ResolveServer(serverBase, null, rel);
+                        if (dest == null)
+                        {
+                            Console.Error.WriteLine($"Skip {folderName}: invalid server path for \"{rel}\"");
+                            continue;
+                        }
+
+                        RunAction(action, Path.Combine(localBase, rel), dest, null);
                     }
                 }
             }

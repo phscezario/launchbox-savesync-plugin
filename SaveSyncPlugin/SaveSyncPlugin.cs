@@ -21,6 +21,10 @@ namespace SaveSyncPlugin
             {
                 try
                 {
+                    // Always logged, even with SyncOnStartup off: this is the line that
+                    // proves which install root and which plugin folder are in use.
+                    SyncLog.Write("STARTUP LaunchBoxStartupCompleted");
+
                     var settings = SaveSyncStorage.LoadSettings();
                     if (settings.SyncOnStartup)
                     {

@@ -141,6 +141,173 @@ namespace SaveSyncPlugin.Tests
             finally { cleanup(); }
         }
 
+        // ---------------- portable paths only ----------------
+
+        [Theory]
+        [InlineData(@"C:\Emuladores\PSVita")]
+        [InlineData(@"\\servidor\jogos\PSVita")]
+        [InlineData(@"\Emuladores\PSVita")]
+        public void ResolveLocalBase_RefusesAbsoluteLocalBase(string localBase)
+        {
+            Assert.Null(PathResolver.ResolveLocalBase(LaunchBoxRoot, Wrapper, localBase));
+        }
+
+        [Fact]
+        public void ResolveLocal_RefusesAbsoluteRelativePath()
+        {
+            Assert.Null(PathResolver.ResolveLocal(
+                LaunchBoxRoot, Wrapper, @"..\Emuladores\PSVita", @"C:\Saves\savedata"));
+        }
+
+        [Fact]
+        public void ResolveLocalBase_DefaultMode_ResolvesEmulatorFolderFromRelativeApplicationPath()
+        {
+            var baseDir = PathResolver.ResolveLocalBase(
+                LaunchBoxRoot, @"..\Emuladores\Switch\yuzu.exe", null);
+
+            Assert.Equal(@"D:\Jogos\Emuladores\Switch", baseDir);
+        }
+
+        [Fact]
+        public void ResolveLocalBase_DefaultMode_NormalizesAbsoluteApplicationPath()
+        {
+            // LaunchBox may store an absolute ApplicationPath; it must be turned into
+            // a relative folder, never passed through as an absolute path.
+            var baseDir = PathResolver.ResolveLocalBase(
+                LaunchBoxRoot, @"D:\Jogos\Emuladores\Switch\yuzu.exe", null);
+
+            Assert.Equal(@"D:\Jogos\Emuladores\Switch", baseDir);
+        }
+
+        [Fact]
+        public void ResolveLocalBase_DefaultMode_RefusesApplicationPathOutsideTheTreeOnAnotherDrive()
+        {
+            Assert.Null(PathResolver.ResolveLocalBase(
+                LaunchBoxRoot, @"Z:\Emuladores\Switch\yuzu.exe", null));
+        }
+
+        [Fact]
+        public void ResolveLocalBase_RefusesHostFolders()
+        {
+            // The plugin folder is not an emulator folder; syncing it would copy the
+            // plugin (and its logs) instead of saves.
+            Assert.Null(PathResolver.ResolveLocalBase(
+                LaunchBoxRoot, Wrapper, @"Plugins\SaveSync LaunchBox Integration"));
+            Assert.Null(PathResolver.ResolveLocalBase(
+                LaunchBoxRoot, Wrapper, @"Core"));
+        }
+
+        [Fact]
+        public void ResolveLocal_RefusesPathThatEscapesIntoHostFolders()
+        {
+            Assert.Null(PathResolver.ResolveLocal(
+                LaunchBoxRoot,
+                @"..\Emuladores\Switch\yuzu.exe",
+                @"..\Emuladores\Switch",
+                @"..\..\LaunchBox\Core\saves"));
+        }
+
+        [Fact]
+        public void ShouldSkipWrapperSync_OnlyWhenWrapperWithoutLocalBase()
+        {
+            Assert.True(PathResolver.ShouldSkipWrapperSync(Wrapper, null, 1));
+            Assert.True(PathResolver.ShouldSkipWrapperSync(Wrapper, "  ", 3));
+            Assert.False(PathResolver.ShouldSkipWrapperSync(Wrapper, @"..\Emuladores\PSVita", 1));
+            Assert.False(PathResolver.ShouldSkipWrapperSync(@"..\Emuladores\Switch\yuzu.exe", null, 1));
+            Assert.False(PathResolver.ShouldSkipWrapperSync(Wrapper, null, 0));
+        }
+
+        // ---------------- per-game local base ----------------
+
+        [Fact]
+        public void ResolveGameLocalBase_Empty_UsesExecutableFolder()
+        {
+            var baseDir = PathResolver.ResolveGameLocalBase(
+                LaunchBoxRoot, @"..\Roms\romm\roms\WindowsGames\JUMP FORCE\JUMP_FORCE.exe", null);
+
+            Assert.Equal(@"D:\Jogos\Roms\romm\roms\WindowsGames\JUMP FORCE", baseDir);
+        }
+
+        [Fact]
+        public void ResolveGameLocalBase_ParentOfExecutableFolder_IsAllowed()
+        {
+            // StepMania - OutFox: the exe lives in Program\, the save in ..\Save.
+            var baseDir = PathResolver.ResolveGameLocalBase(
+                LaunchBoxRoot,
+                @"..\Roms\romm\roms\WindowsGameEngine\StepMania - OutFox\Program\OutFox.exe",
+                "..");
+
+            Assert.Equal(@"D:\Jogos\Roms\romm\roms\WindowsGameEngine\StepMania - OutFox", baseDir);
+        }
+
+        [Theory]
+        [InlineData(@"C:\Saves")]
+        [InlineData(@"\\servidor\saves")]
+        [InlineData(@"\Saves")]
+        public void ResolveGameLocalBase_RefusesAbsoluteLocalBase(string localBase)
+        {
+            Assert.Null(PathResolver.ResolveGameLocalBase(
+                LaunchBoxRoot, @"..\Roms\romm\roms\WindowsGames\JUMP FORCE\JUMP_FORCE.exe", localBase));
+        }
+
+        [Fact]
+        public void ResolveGameLocalBase_RefusesHostFolders()
+        {
+            Assert.Null(PathResolver.ResolveGameLocalBase(
+                LaunchBoxRoot,
+                @"..\Roms\romm\roms\WindowsGames\JUMP FORCE\JUMP_FORCE.exe",
+                @"..\..\..\..\..\LaunchBox\Plugins"));
+        }
+
+        [Fact]
+        public void ResolveGameLocalBase_WithoutApplicationPath_ReturnsNull()
+        {
+            Assert.Null(PathResolver.ResolveGameLocalBase(LaunchBoxRoot, null, null));
+        }
+
+        // ---------------- relativize ----------------
+
+        [Fact]
+        public void Relativize_ReturnsPathRelativeToLaunchBoxRoot()
+        {
+            Assert.Equal(@"..\Emuladores\Switch",
+                PathResolver.Relativize(LaunchBoxRoot, @"D:\Jogos\Emuladores\Switch"));
+        }
+
+        [Fact]
+        public void Relativize_ReturnsNullForTheRootItself()
+        {
+            Assert.Null(PathResolver.Relativize(LaunchBoxRoot, LaunchBoxRoot));
+        }
+
+        [Fact]
+        public void Relativize_ReturnsNullForAnotherDrive()
+        {
+            Assert.Null(PathResolver.Relativize(LaunchBoxRoot, @"Z:\Emuladores\Switch"));
+        }
+
+        // ---------------- server base ----------------
+
+        [Fact]
+        public void ResolveServer_RefusesAbsoluteRelativePath()
+        {
+            Assert.Null(PathResolver.ResolveServer(ServerRoot, "PSVita", @"C:\Saves\savedata"));
+        }
+
+        [Fact]
+        public void ResolveServer_RelativeServerBase_IsRootedAndKeepsTheFolderLayout()
+        {
+            // A relative ServerBasePath is resolved against the LaunchBox folder, never
+            // against the process working directory.
+            var server = PathResolver.ResolveServer(@"..\SavesBackup", "PSVita", "savedata");
+
+            Assert.NotNull(server);
+            Assert.True(Path.IsPathRooted(server));
+            Assert.EndsWith(
+                Path.Combine("SavesBackup", "PSVita", "savedata"),
+                server);
+        }
+
         private static string CreateTree(out Action cleanup, bool createExecutable = true)
         {
             var root = Path.Combine(Path.GetTempPath(), "savesync-tests", Guid.NewGuid().ToString("N"));

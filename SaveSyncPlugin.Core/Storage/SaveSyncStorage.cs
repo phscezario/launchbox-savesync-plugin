@@ -3,17 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using SaveSyncPlugin.Core.Models;
+using SaveSyncPlugin.Core.Sync;
 
 namespace SaveSyncPlugin.Core.Storage
 {
     public static class SaveSyncStorage
     {
-        private static string PluginFolder =>
-            Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "Plugins",
-                "SaveSync LaunchBox Integration"
-            );
+        /// <summary>
+        /// Folder that holds settings.json / emulators.json / games.json. Comes from
+        /// <see cref="PluginPaths.PluginFolder"/> (assembly location), never from
+        /// <c>AppDomain.BaseDirectory</c>: the LaunchBox 14 host lives in
+        /// <c>&lt;root&gt;\Core</c>, so BaseDirectory would point at
+        /// <c>&lt;root&gt;\Core\Plugins\...</c>.
+        /// </summary>
+        public static string PluginFolder => PluginPaths.PluginFolder;
 
         private static string SettingsPath => Path.Combine(PluginFolder, "settings.json");
         private static string EmulatorsPath => Path.Combine(PluginFolder, "emulators.json");
@@ -23,12 +26,9 @@ namespace SaveSyncPlugin.Core.Storage
         {
             get
             {
-                var dir = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    "Plugins",
-                    "SaveSync LaunchBox Integration"
-                );
-                Directory.CreateDirectory(dir);
+                var dir = PluginFolder;
+                if (!string.IsNullOrWhiteSpace(dir))
+                    Directory.CreateDirectory(dir);
                 return dir;
             }
         }
@@ -76,6 +76,12 @@ namespace SaveSyncPlugin.Core.Storage
 
         public static void SaveEmulatorConfigs(List<EmulatorSaveConfig> configs)
         {
+            // Safety net: an absolute path in LocalBase breaks the install on any
+            // other machine, so it is refused before it reaches the JSON file.
+            var error = ValidateEmulatorConfigs(configs);
+            if (error != null)
+                throw new ArgumentException(error, nameof(configs));
+
             Directory.CreateDirectory(PluginFolder);
             File.WriteAllText(EmulatorsPath,
                 JsonConvert.SerializeObject(configs, Formatting.Indented));
@@ -135,6 +141,69 @@ namespace SaveSyncPlugin.Core.Storage
             {
                 return new List<EmulatorSaveConfig>();
             }
+        }
+
+        /// <summary>
+        /// Returns an error message when <paramref name="localBase"/> is not a usable
+        /// relative path, or <c>null</c> when it is fine (empty is fine: it means
+        /// "use the emulator folder").
+        /// </summary>
+        public static string ValidateLocalBase(string localBase)
+        {
+            if (string.IsNullOrWhiteSpace(localBase))
+                return null;
+
+            if (PathResolver.IsAbsolute(localBase))
+            {
+                return "Use a relative path (for example ..\\Emuladores\\PSVita\\...). " +
+                       "Absolute paths are not allowed: they break the install on another machine.";
+            }
+
+            return null;
+        }
+
+        /// <summary>Same rule for the paths below the local base.</summary>
+        public static string ValidateRelativePaths(IEnumerable<string> relativePaths)
+        {
+            if (relativePaths == null)
+                return null;
+
+            foreach (var path in relativePaths)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+
+                if (PathResolver.IsAbsolute(path))
+                {
+                    return $"\"{path}\" is absolute. Relative paths only " +
+                           "(they are applied to the local base and to the server folder).";
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Validates every emulator config, returning the first problem found.</summary>
+        public static string ValidateEmulatorConfigs(IEnumerable<EmulatorSaveConfig> configs)
+        {
+            if (configs == null)
+                return null;
+
+            foreach (var config in configs)
+            {
+                if (config == null)
+                    continue;
+
+                var localBaseError = ValidateLocalBase(config.LocalBase);
+                if (localBaseError != null)
+                    return $"{config.Title ?? config.FolderName ?? "(emulator)"}: {localBaseError}";
+
+                var pathsError = ValidateRelativePaths(config.RelativePaths);
+                if (pathsError != null)
+                    return $"{config.Title ?? config.FolderName ?? "(emulator)"}: {pathsError}";
+            }
+
+            return null;
         }
     }
 }
